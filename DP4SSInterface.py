@@ -6,6 +6,7 @@ class File:
             'Tube_Water':[],
             'Chamber_Volume':[],
             'Seepage_Volume':[]}
+
     def __init__(self,path,file):
         self.__path = path
         self.__file = file
@@ -25,13 +26,83 @@ class File:
                 File.Data['Chamber_Volume'].append(float(line[3]))
                 File.Data['Seepage_Volume'].append(float(line[4]))
         f.close()
-    def Calculate_FlowRate(self):
+    def New(self, If_Strain_Pointed = False, Pointed_Strain = []):
         __f = File(path, file)
         __f.Read()
-        speed = float(__f.Control["Shear_Speed"][0])
+        if If_Strain_Pointed:  # if Strain is pointed, then Strain is Pointed Strain.
+            FlowRate = {'TimeLabel': [], 'Strain': Pointed_Strain, 'FlowRate': []}
+            # Linear Interpolation
+            j = 0
+            __Stress = []
+            __Tube = []
+            __Chamber = []
+            __Seepage = []
+            for i in range(len(Pointed_Strain)):
+                S = Pointed_Strain[i]
+                while j < len(__f.Data['Strain']) - 1:
+                    S0 = __f.Data['Strain'][j]
+                    S1 = __f.Data['Strain'][j + 1]
+                    if S <= S1 and S >= S0:
+                        SS0 = __f.Data['Stress'][j]
+                        SS1 = __f.Data['Stress'][j + 1]
+                        __Stress.append(SS0 + (SS1 - SS0) * (S - S0) / (S1 - S0))
+                        SS0 = __f.Data['Tube_Water'][j]
+                        SS1 = __f.Data['Tube_Water'][j + 1]
+                        __Tube.append(SS0 + (SS1 - SS0) * (S - S0) / (S1 - S0))
+                        SS0 = __f.Data['Chamber_Volume'][j]
+                        SS1 = __f.Data['Chamber_Volume'][j + 1]
+                        __Chamber.append(SS0 + (SS1 - SS0) * (S - S0) / (S1 - S0))
+                        SS0 = __f.Data['Seepage_Volume'][j]
+                        SS1 = __f.Data['Seepage_Volume'][j + 1]
+                        __Seepage.append(SS0 + (SS1 - SS0) * (S - S0) / (S1 - S0))
+                        break
+                    j += 1
+                    if j == len(__f.Data['Strain']) - 1 and S > S1:
+                        # if the pointed value exceeds the maximum, Outerpolation
+                        SS0 = __f.Data['Stress'][j - 1]
+                        SS1 = __f.Data['Stress'][j]
+                        __Stress.append(SS1 + (SS1 - SS0) * (S - S1) / (S1 - S0))
+                        SS0 = __f.Data['Tube_Water'][j - 1]
+                        SS1 = __f.Data['Tube_Water'][j]
+                        __Tube.append(SS1 + (SS1 - SS0) * (S - S1) / (S1 - S0))
+                        SS0 = __f.Data['Chamber_Volume'][j - 1]
+                        SS1 = __f.Data['Chamber_Volume'][j]
+                        __Chamber.append(SS1 + (SS1 - SS0) * (S - S1) / (S1 - S0))
+                        SS0 = __f.Data['Seepage_Volume'][j - 1]
+                        SS1 = __f.Data['Seepage_Volume'][j]
+                        __Seepage.append(SS1 + (SS1 - SS0) * (S - S1) / (S1 - S0))
+                        print('Waring : Outerpolation warning. Check data at STRAIN IN FILE: '
+                              , S0, 'and', S1,
+                              'STRAIN POINTED :', S)
+                        break
+            __f.Data['Strain'] = Pointed_Strain
+            __f.Data['Stress'] = __Stress
+            __f.Data['Tube_Water'] = __Tube
+            __f.Data['Chamber_Volume'] = __Chamber
+            __f.Data['Seepage_Volume'] = __Seepage
+    def Calculate_FlowRate(self, If_Strain_Pointed = False, Pointed_Strain = []):
+        __f = File(path, file)
+        __f.New(If_Strain_Pointed, Pointed_Strain)
+        FlowRate = {'TimeLabel': [], 'Strain': [i/100 for i in __f.Data['Strain']], 'FlowRate': []}
+        speed = float(__f.Control['Shear_Speed'][0])# unit of speed is mm/min
+        for i in range(len(FlowRate['Strain'])-1):
+            __dStrain = FlowRate['Strain'][i+1]-FlowRate['Strain'][i]
+            __time = __dStrain/speed
+            FlowRate['TimeLabel'].append(__time) # unit of time is minute
+            __Ice_Out = __dStrain/10*4.5*2 # unit of ice out is cm^3 (mL)
+            __Seepage_In = __f.Data['Seepage_Volume'][i + 1] - __f.Data['Seepage_Volume'][i]
+            __Chamber_In = __f.Data['Chamber_Volume'][i + 1] - __f.Data['Chamber_Volume'][i]\
+                         + __dStrain*(3.1415926 - 4.5*2) # Lever_In
+            __All_Out = __f.Data['Tube_Water'][i] - __f.Data['Tube_Water'][i + 1]
+            Flow = __All_Out
+            print(__All_Out)
+            FlowRate['FlowRate'].append(Flow/__time)
+        return(FlowRate)
 
 
 
+
+import matplotlib.pyplot as plt
 
 path = "H:\\data\\Shear_Seepage\\dataprocess\\"
 file = "test.txt"
@@ -39,6 +110,10 @@ file = "test.txt"
 
 In = File(path,file)
 #In.Read()
-In.Calculate_FlowRate()
+a = In.Calculate_FlowRate()
+fig, ax = plt.subplots()
+line1, = ax.plot(a['Strain'][1:], a['FlowRate'], '--', linewidth=2,label='1')
+ax.legend(loc='lower right')
+plt.show()
 print('finished')
 
