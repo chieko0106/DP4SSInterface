@@ -1,17 +1,18 @@
 # -*- coding: UTF-8 -*-
 class File:
-    Control={}
-    Data = {'Strain':[],
-            'Stress':[],
-            'Tube_Water':[],
-            'Chamber_Volume':[],
-            'Seepage_Volume':[]}
-
+    Control = {}
+    Data = {}
     def __init__(self,path,file):
         self.__path = path
         self.__file = file
     def Read(self):
         f = open(self.__path+self.__file)
+        File.Control = {}
+        File.Data = {'Strain':[],
+                     'Stress':[],
+                     'Tube_Water':[],
+                     'Chamber_Volume':[],
+                     'Seepage_Volume':[]}
         for line in f:
             if line[0].isalpha():
                 line = line[0:-1]
@@ -94,8 +95,8 @@ class File:
             __Chamber_In = __f.Data['Chamber_Volume'][i + 1] - __f.Data['Chamber_Volume'][i]\
                          + __dStrain*(3.1415926 - 4.5*2) # Lever_In
             __All_Out = __f.Data['Tube_Water'][i] - __f.Data['Tube_Water'][i + 1]
-            Flow = __All_Out
-            print(__All_Out)
+            Flow = __All_Out-__Ice_Out
+            # print(__All_Out)
             FlowRate['FlowRate'].append(Flow/__time)
         return(FlowRate)
 
@@ -104,16 +105,40 @@ class File:
 
 import matplotlib.pyplot as plt
 
-path = "H:\\data\\Shear_Seepage\\dataprocess\\"
+path = "H:\\data\\Shear_Seepage\\dataprocess\\Data\\"
 file = "test.txt"
-
-
-In = File(path,file)
-#In.Read()
-a = In.Calculate_FlowRate()
+mod = [100,200,300,400,500,600,700,800,900,1000,1500,2000,2500,3000
+    ,3500,4000,4500,5000,5500,6000,6500,7000,7500,8000]
+# mod = [100,200,300,400,500,600,700,800,900,1000,2000,3000,4000,5000,6000,7000,8000]
 fig, ax = plt.subplots()
-line1, = ax.plot(a['Strain'][1:], a['FlowRate'], '--', linewidth=2,label='1')
-ax.legend(loc='lower right')
+
+file = "JC2_100.txt"
+In1 = File(path,file)
+a1 = In1.Calculate_FlowRate(True,mod)
+line1, = ax.plot(a1['Strain'][1:], a1['FlowRate'], '--', linewidth=2,label=file)
+
+file = "JC2_200.txt"
+In2 = File(path,file)
+a2 = In2.Calculate_FlowRate(True,mod)
+line2, = ax.plot(a2['Strain'][1:], a2['FlowRate'], '--', linewidth=2,label=file)
+
+file = "JC2_500.txt"
+In3 = File(path,file)
+a3 = In3.Calculate_FlowRate(True,mod)
+line3, = ax.plot(a3['Strain'][1:], a3['FlowRate'], '--', linewidth=2,label=file)
+
+file = "JC2_900.txt"
+In4 = File(path,file)
+a4 = In4.Calculate_FlowRate(True,mod)
+line4, = ax.plot(a4['Strain'][1:], a4['FlowRate'], '--', linewidth=2,label=file)
+
+ax.scatter(a1['Strain'][1:], a1['FlowRate'], marker='o')
+ax.scatter(a2['Strain'][1:], a2['FlowRate'], marker='o')
+ax.scatter(a3['Strain'][1:], a3['FlowRate'], marker='o')
+ax.scatter(a4['Strain'][1:], a4['FlowRate'], marker='o')
+
+ax.semilogx()
+ax.legend(loc='upper right')
 plt.show()
 print('finished')
 
